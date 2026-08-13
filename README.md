@@ -63,6 +63,42 @@ the filters, the simulator, and the measurements.
 
 ---
 
+### Can you write a transformer without autograd?
+
+A GPT trained from scratch in dependency-free C99 — forward pass *and*
+hand-derived backward pass, with PyTorch used as a numerical oracle rather than
+as a framework.
+
+```
+30,144 gradients verified against autograd    37 mutations, 37 caught
+loss 4.64 -> 2.00, starting at ln(vocab)      training bit-for-bit reproducible
+```
+
+**Why an oracle.** An incorrect gradient almost never announces itself — it
+usually still decreases the loss, just more slowly. "It trains" is the failure
+mode, not the evidence. So every operation is pinned against `torch.autograd`
+before any of it is assembled, and separately against finite differences, which
+know nothing about transformers and so cannot share a misreading of the
+architecture.
+
+**What it taught me.** Two deliberate bugs *survived* the suite, and both were
+buffers the forward pass must overwrite. My tests handed them over freshly
+`calloc`'d — clean zeroed memory, which a training loop never provides, since
+those buffers are reused every step. PyTorch agreed with the broken code, because
+the oracle harness shared the same assumption; only breaking the code on purpose
+found them.
+
+Separately, a trivial-looking assertion failure — `grads[0] == 0.3f` false while
+the bytes were provably unchanged — turned out to be x87 excess precision. The
+build was evaluating in 80 bits and calling itself float32, which quietly made
+the library more accurate than the embedded targets it is written for. Pinned to
+real single-precision, every gradient still matches.
+
+→ **[gpt-in-c](https://github.com/ElliottPurdue/gpt-in-c)** — the library, the
+oracle, and the mutation table.
+
+---
+
 ### What I work on
 
 **Quantitative research & data engineering** — walk-forward validation,
