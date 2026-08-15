@@ -9,7 +9,8 @@ else does.
 
 ### Does financial news predict stock returns?
 
-I built a research pipeline to find out. The honest answer is mostly no.
+I built a pipeline to test it, writing the hypotheses down before I looked at
+any results.
 
 ```
 251K headlines scored with FinBERT      2,510 out-of-sample sessions
