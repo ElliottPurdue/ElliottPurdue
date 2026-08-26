@@ -44,7 +44,7 @@ true attitude.
 
 ```
 0.13° tilt RMS, 3x a tuned complementary filter    47 tests, no framework
-4.0 us/update, 204 B state, 7.2 KB flash           runs on an ESP32-S3
+107 us/update measured on an ESP32-S3              7.2 KB flash, zero static RAM
 ```
 
 **The interesting failure.** A covariance filter can become *confident about a
@@ -53,6 +53,11 @@ z-axis gyro bias estimate converged to 3.4x its true value while its stated
 variance shrank. The complementary filter, having no covariance to be confident
 with, simply left the state alone. That is the better failure mode. Adding a
 magnetometer fixed it: same estimator, same tuning, bias recovered to within 1%.
+
+**What the host could not tell me.** Extrapolating cost from a desktop put the
+EKF at 20x the complementary filter. Measured on the Xtensa it is 15.8x, at 107
+us per update, about 11% of a 1 kHz control loop. Same source, same flags, and
+the desktop made the better filter look worse on the target than it is.
 
 **Where I went wrong.** My first magnetometer Jacobian was incorrect. Heading is a
 rotation about the *world* vertical, but the error state lives in the *body*
