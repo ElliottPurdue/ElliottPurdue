@@ -78,7 +78,7 @@ backward pass, with PyTorch used as a numerical oracle rather than as a framewor
 
 ```
 30,144 gradients verified against autograd    38 mutations, 38 caught
-loss 4.64 -> 2.00, starting at ln(vocab)      training bit-for-bit reproducible
+loss 4.55 -> 2.22, starting at ln(vocab)      4.05x threaded, identical bytes
 ```
 
 **Why an oracle.** An incorrect gradient almost never announces itself. It usually
@@ -100,8 +100,24 @@ precision: the build was evaluating in 80 bits and calling itself float32, quiet
 making the library more accurate than the embedded targets it is written for.
 Pinned to real single-precision, every gradient still matches.
 
+**Threading something whose whole claim is determinism.** Floating-point addition
+is not associative, so the reflexive `#pragma omp parallel for reduction(+:sum)`
+would combine per-thread partial sums in whatever order the threads finished, and
+the bit-identical loss curve everything here rests on would be gone. The rule I
+settled on is that parallelism may split the *output* of an accumulation, never
+the index being accumulated. That axis is different in each loop: the forward
+pass sums over inputs, the input-gradient half sums over outputs, the
+weight-gradient half sums over rows. Three loops, three different axes, and one
+left deliberately serial because its outer loop *is* its accumulation index.
+
+It runs 4.05x faster on 16 cores with the loss curve, the gradient norms and the
+sampled text byte-identical at every thread count. The test suite could not have
+told me that: it runs at 1e-5 tolerance and a reordered sum moves results by
+about 1e-7, so a build with the arithmetic quietly destroyed passes all 25 tests.
+CI compares bytes across seven thread counts instead.
+
 → **[gpt-in-c](https://github.com/ElliottPurdue/gpt-in-c)**, where CI reruns the
-whole mutation table on every push.
+whole mutation table on every push and proves the threading changed nothing.
 
 ---
 
